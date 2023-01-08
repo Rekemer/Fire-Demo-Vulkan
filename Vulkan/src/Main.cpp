@@ -1,7 +1,9 @@
-#include "Renderer.h"
+#include "App.h"
 
 void main()
 {
-	Renderer renderer;
+	App app{640,480,true};
+	app.run();
+
 	
 }

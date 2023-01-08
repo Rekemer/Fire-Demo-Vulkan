@@ -2,23 +2,99 @@
 #include "Instance.h"
 #include "Logging.h"
 #include "Device.h"
+#include "Pipeline.h"
 #include <glfw3.h>
+#include "FrameBuffer.h"
+#include "Commands.h"
+#include "Sync.h"
 
-Renderer::Renderer()
+
+
+Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
+	m_width{width},
+	m_height{ height },
+	m_window{window},
+	m_debug{debug}
 {
-	BuildWindow();
 	CreateInstance();
 	CreateDevice();
-	
+	MakePipeline();
+	FinalizeSetup();
+}
+
+void Renderer::Render()
+{
+	m_device.waitForFences(1, &inFlightFence, VK_TRUE, UINT64_MAX);
+	m_device.resetFences(1, &inFlightFence);
+
+	//acquireNextImageKHR(vk::SwapChainKHR, timeout, semaphore_to_signal, fence)
+	uint32_t imageIndex{ m_device.acquireNextImageKHR(m_swapchain, UINT64_MAX, imageAvailable, nullptr).value };
+
+	vk::CommandBuffer commandBuffer = m_swapchainFrames[imageIndex].commandBuffer;
+
+	commandBuffer.reset();
+
+	RecordDrawCommands(commandBuffer, imageIndex);
+
+	vk::SubmitInfo submitInfo = {};
+
+	vk::Semaphore waitSemaphores[] = { imageAvailable };
+	vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vk::Semaphore signalSemaphores[] = { renderFinished };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	try {
+		m_graphicsQueue.submit(submitInfo, inFlightFence);
+	}
+	catch (vk::SystemError err) {
+
+		if (m_debug) {
+			std::cout << "failed to submit draw command buffer!" << std::endl;
+		}
+	}
+
+	vk::PresentInfoKHR presentInfo = {};
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = signalSemaphores;
+
+	vk::SwapchainKHR swapChains[] = { m_swapchain };
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapChains;
+
+	presentInfo.pImageIndices = &imageIndex;
+
+	m_presentQueue.presentKHR(presentInfo);
 }
 
 Renderer::~Renderer()
 {
+	m_device.waitIdle();
 	glfwTerminate();
 	for (vkUtil::SwapChainFrame frame : m_swapchainFrames) {
 		m_device.destroyImageView(frame.imageView);
+		m_device.destroy(frame.framebuffer);
 	}
+
+	m_device.destroyPipeline(m_pipeline);
+	m_device.destroyPipelineLayout(m_pipelineLayout);
+	m_device.destroyRenderPass(m_renderpass);
+	m_device.destroyCommandPool(m_commandPool);
+
 	m_device.destroySwapchainKHR(m_swapchain);
+
+
+
+	m_device.destroySemaphore(imageAvailable);
+	m_device.destroySemaphore(renderFinished);
+	m_device.destroyFence(inFlightFence);
 	m_device.destroy();
 	m_instance.destroyDebugUtilsMessengerEXT(m_debugMessenger, nullptr, m_dldi);
 	m_instance.destroySurfaceKHR(m_surface);
@@ -26,15 +102,7 @@ Renderer::~Renderer()
 
 }
 
-void Renderer::BuildWindow()
-{
-	glfwInit();
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-	m_window = glfwCreateWindow(m_width, m_height, "Vulkan", nullptr, nullptr);
-}
 
 void Renderer::CreateInstance()
 {
@@ -71,6 +139,85 @@ void Renderer::CreateDevice()
 	m_swapchainFrames = bundle.frames;
 	m_swapchainFormat = bundle.format;
 	m_swapchainExtent = bundle.extent;
+}
+
+void Renderer::MakePipeline()
+{
+	vkInit::GraphicsPipelineInBundle specification = {};
+	specification.device = m_device;
+	specification.vertexFilepath = "shaders/vertex.spv";
+	specification.fragmentFilepath = "shaders/fragment.spv";
+	specification.swapchainExtent = m_swapchainExtent;
+	specification.swapchainImageFormat = m_swapchainFormat;
+
+	vkInit::GraphicsPipelineOutBundle output = vkInit::create_graphics_pipeline(
+		specification, m_debug
+	);
+
+	m_pipelineLayout = output.layout;
+	m_renderpass = output.renderpass;
+	m_pipeline = output.pipeline;
+}
+
+void Renderer::FinalizeSetup()
+{
+	vkInit::framebufferInput frameBufferInput;
+	frameBufferInput.device = m_device;
+	frameBufferInput.renderpass = m_renderpass;
+	frameBufferInput.swapchainExtent = m_swapchainExtent;
+	vkInit::makeFramebuffers(frameBufferInput, m_swapchainFrames, m_debug);
+
+	m_commandPool = vkInit::make_command_pool(m_device, m_physicalDevice, m_surface, m_debug);
+	
+	vkInit::commandBufferInputChunk commandBufferInput = { m_device, m_commandPool, m_swapchainFrames };
+	m_mainCommandBuffer = vkInit::make_command_buffers(commandBufferInput, m_debug);
+	
+	inFlightFence = vkInit::make_fence(m_device, m_debug);
+	imageAvailable = vkInit::make_semaphore(m_device, m_debug);
+	renderFinished = vkInit::make_semaphore(m_device, m_debug);
+}
+
+void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
+{
+	vk::CommandBufferBeginInfo beginInfo = {};
+
+	try {
+		commandBuffer.begin(beginInfo);
+	}
+	catch (vk::SystemError err) {
+		if (m_debug) {
+			std::cout << "Failed to begin recording command buffer!" << std::endl;
+		}
+	}
+
+	vk::RenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.renderPass = m_renderpass;
+	renderPassInfo.framebuffer = m_swapchainFrames[imageIndex].framebuffer;
+	renderPassInfo.renderArea.offset.x = 0;
+	renderPassInfo.renderArea.offset.y = 0;
+	renderPassInfo.renderArea.extent = m_swapchainExtent;
+
+	vk::ClearValue clearColor = { std::array<float, 4>{1.0f, 0.5f, 0.25f, 1.0f} };
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
+
+	commandBuffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+
+	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+
+	commandBuffer.draw(3, 1, 0, 0);
+
+	commandBuffer.endRenderPass();
+
+	try {
+		commandBuffer.end();
+	}
+	catch (vk::SystemError err) {
+
+		if (m_debug) {
+			std::cout << "failed to record command buffer!" << std::endl;
+		}
+	}
 }
 
 

@@ -135,18 +135,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\FrameBuffer.h" />
     <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\Main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\App.h" />
+    <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\Frame.h" />
+    <ClInclude Include="src\Pipeline.h" />
     <ClInclude Include="src\QueueFamilies.h" />
     <ClInclude Include="src\Config.h" />
     <ClInclude Include="src\Device.h" />
     <ClInclude Include="src\Instance.h" />
     <ClInclude Include="src\Logging.h" />
     <ClInclude Include="src\Renderer.h" />
+    <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\Swapchain.h" />
+    <ClInclude Include="src\Sync.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

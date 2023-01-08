@@ -8,17 +8,23 @@ class GLFWwindow;
 class Renderer
 {
 public:
-	Renderer();
+	Renderer(int width, int height, GLFWwindow* window,bool debug);
 	~Renderer();
+	void Render();
 private:
 	void BuildWindow();
 	void CreateInstance();
 	void CreateDevice();
+	void MakePipeline();
+
+	void FinalizeSetup();
+
+	void RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
 
 private:
-	bool m_debug{true};
-	int m_width{640};
-	int m_height{480};
+	bool m_debug;
+	int m_width;
+	int m_height;
 	GLFWwindow* m_window;
 	
 	//instance-related variables
@@ -43,5 +49,21 @@ private:
 	std::vector<vkUtil::SwapChainFrame> m_swapchainFrames;
 	vk::Format m_swapchainFormat;
 	vk::Extent2D m_swapchainExtent;
+
+	//pipeline-related variables
+	vk::PipelineLayout m_pipelineLayout;
+	vk::RenderPass m_renderpass;
+	vk::Pipeline m_pipeline;
+
+
+	//Command-related variables
+	vk::CommandPool m_commandPool;
+	vk::CommandBuffer m_mainCommandBuffer;
+
+	//Synchronization objects
+	vk::Fence inFlightFence;
+	vk::Semaphore imageAvailable, renderFinished;
+
+
 };
 
