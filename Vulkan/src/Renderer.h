@@ -19,6 +19,15 @@ private:
 
 	void FinalizeSetup();
 
+	void MakeSwapchain();
+	void RecreateSwapchain();
+	void DestroySwapchain();
+
+	void MakeFramebuffers();
+	void MakeFrameSyncObjects();
+
+
+
 	void RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
 
 private:
@@ -61,9 +70,9 @@ private:
 	vk::CommandBuffer m_mainCommandBuffer;
 
 	//Synchronization objects
-	vk::Fence inFlightFence;
-	vk::Semaphore imageAvailable, renderFinished;
-
+	//vk::Fence inFlightFence;
+	//vk::Semaphore imageAvailable, renderFinished;
+	size_t maxFramesInFlight, frameNumber;
 
 };
 
