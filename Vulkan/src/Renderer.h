@@ -1,7 +1,7 @@
 #pragma once
 #include "vulkan/vulkan.hpp"
 #include"Frame.h"
-
+#include "TriangleMesh.h"
 class GLFWwindow;
 
 
@@ -29,6 +29,12 @@ private:
 
 
 	void RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
+
+	//asset creation
+	void MakeAssets();
+
+	void PrepareScene(vk::CommandBuffer commandBuffer);
+
 
 private:
 	bool m_debug;
@@ -73,6 +79,11 @@ private:
 	//vk::Fence inFlightFence;
 	//vk::Semaphore imageAvailable, renderFinished;
 	size_t maxFramesInFlight, frameNumber;
+
+
+	//asset pointers
+	TriangleMesh* triangleMesh;
+
 
 };
 

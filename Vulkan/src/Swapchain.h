@@ -106,8 +106,13 @@ namespace vkInit
 
 		support.presentModes = device.getSurfacePresentModesKHR(surface);
 
-		for (vk::PresentModeKHR presentMode : support.presentModes) {
-			std::cout << '\t' << log_present_mode(presentMode) << '\n';
+
+		if (debug)
+		{
+			for (vk::PresentModeKHR presentMode : support.presentModes)
+			{
+				std::cout << '\t' << log_present_mode(presentMode) << '\n';
+			}
 		}
 		return support;
 	}

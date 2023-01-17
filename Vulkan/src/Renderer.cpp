@@ -14,14 +14,17 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 	m_width{width},
 	m_height{ height },
 	m_window{window},
-	m_debug{debug}
+	m_debug{true}
 {
 	CreateInstance();
 	CreateDevice();
 	MakePipeline();
 	FinalizeSetup();
+	MakeAssets();
 }
 
+
+//reset and re-record command buffer usage mode
 void Renderer::Render()
 {
 	m_device.waitForFences(1, &m_swapchainFrames[frameNumber].inFlight, VK_TRUE, UINT64_MAX);
@@ -95,9 +98,10 @@ Renderer::~Renderer()
 	m_device.destroyPipelineLayout(m_pipelineLayout);
 	m_device.destroyRenderPass(m_renderpass);
 	m_device.destroyCommandPool(m_commandPool);
+	
 
-
-
+	delete triangleMesh;
+			
 
 	m_device.destroy();
 	m_instance.destroyDebugUtilsMessengerEXT(m_debugMessenger, nullptr, m_dldi);
@@ -114,11 +118,11 @@ void Renderer::CreateInstance()
 {
 	m_instance = vkInit::CreateInstance(m_debug, "Vulkan");
 	m_dldi = vk::DispatchLoaderDynamic(m_instance, vkGetInstanceProcAddr);
-	if (!m_debug) {
-		return;
+	if (m_debug)
+	{
+		m_debugMessenger = vkInit::make_debug_messenger(m_instance, m_dldi);	
 	}
 
-	m_debugMessenger = vkInit::make_debug_messenger(m_instance, m_dldi);
 
 	VkSurfaceKHR c_style_surface;
 	if (glfwCreateWindowSurface(m_instance, m_window, nullptr, &c_style_surface) != VK_SUCCESS) {
@@ -166,6 +170,7 @@ void Renderer::FinalizeSetup()
 {
 	MakeFramebuffers();
 
+
 	m_commandPool = vkInit::make_command_pool(m_device, m_physicalDevice, m_surface, m_debug);
 	
 	vkInit::commandBufferInputChunk commandBufferInput = { m_device, m_commandPool, m_swapchainFrames };
@@ -177,7 +182,7 @@ void Renderer::FinalizeSetup()
 
 void Renderer::MakeSwapchain()
 {
-	auto bundle = vkInit::CreateSwapchain(m_device, m_physicalDevice, m_surface, m_width, m_height, true);
+	auto bundle = vkInit::CreateSwapchain(m_device, m_physicalDevice, m_surface, m_width, m_height, m_debug);
 	m_swapchain = bundle.swapchain;
 	m_swapchainFrames = bundle.frames;
 	m_swapchainFormat = bundle.format;
@@ -270,6 +275,8 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	commandBuffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
 
 	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+	
+	PrepareScene(commandBuffer);
 
 	commandBuffer.draw(3, 1, 0, 0);
 
@@ -285,5 +292,22 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 		}
 	}
 }
+
+void Renderer::MakeAssets()
+{
+	triangleMesh = new TriangleMesh(m_device, m_physicalDevice);
+
+}
+
+
+
+void Renderer::PrepareScene(vk::CommandBuffer commandBuffer)
+{
+	vk::Buffer vertexBuffers[] = { triangleMesh->vertexBuffer.buffer };
+	vk::DeviceSize offsets[] = { 0 };
+	commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
+}
+
+
 
 

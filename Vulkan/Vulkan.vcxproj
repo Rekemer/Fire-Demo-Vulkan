@@ -137,10 +137,14 @@
   <ItemGroup>
     <ClCompile Include="src\App.cpp" />
     <ClCompile Include="src\FrameBuffer.h" />
+    <ClCompile Include="src\Memory.cpp" />
     <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\TriangleMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Memory.h" />
+    <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\App.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\Frame.h" />
@@ -154,6 +158,7 @@
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\Swapchain.h" />
     <ClInclude Include="src\Sync.h" />
+    <ClInclude Include="src\TriangleMesh.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

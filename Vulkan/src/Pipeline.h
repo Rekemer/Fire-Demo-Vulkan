@@ -1,6 +1,7 @@
 #pragma once
 #include "config.h"
 #include "Shader.h"
+#include "Mesh.h"
 namespace vkInit {
 	/**
 			holds the data structures used to create a pipeline
@@ -95,10 +96,17 @@ namespace vkInit {
 		std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
 
 		//Vertex Input
+
+
+		vk::VertexInputBindingDescription bindingDescription = vkMesh::getPosColorBindingDescription();
+		std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions 
+			= vkMesh::getPosColorAttributeDescriptions();
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.flags = vk::PipelineVertexInputStateCreateFlags();
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.vertexAttributeDescriptionCount = 2;
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 
 		//Input Assembly
