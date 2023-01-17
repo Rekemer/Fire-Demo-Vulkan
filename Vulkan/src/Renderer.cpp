@@ -7,6 +7,7 @@
 #include "FrameBuffer.h"
 #include "Commands.h"
 #include "Sync.h"
+#include "Descriptors.h"
 
 
 
@@ -18,6 +19,9 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 {
 	CreateInstance();
 	CreateDevice();
+
+	MakeDescriptorSetLayout();
+
 	MakePipeline();
 	FinalizeSetup();
 	MakeAssets();
@@ -36,6 +40,8 @@ void Renderer::Render()
 	vk::CommandBuffer commandBuffer = m_swapchainFrames[frameNumber].commandBuffer;
 
 	commandBuffer.reset();
+
+	PrepareFrame(imageIndex);
 
 	RecordDrawCommands(commandBuffer, imageIndex);
 
@@ -98,6 +104,8 @@ Renderer::~Renderer()
 	m_device.destroyPipelineLayout(m_pipelineLayout);
 	m_device.destroyRenderPass(m_renderpass);
 	m_device.destroyCommandPool(m_commandPool);
+	m_device.destroyDescriptorSetLayout(descriptorSetLayout);
+	m_device.destroyDescriptorPool(descriptorPool);
 	
 
 	delete triangleMesh;
@@ -148,6 +156,23 @@ void Renderer::CreateDevice()
 
 }
 
+void Renderer::MakeDescriptorSetLayout()
+{
+		/*
+			There is just one binding, it's at binding 0,
+			is a single uniform buffer, to be bound to the vertex shader stage.
+		*/
+		vkInit::descriptorSetLayoutData bindings;
+		bindings.count = 1;
+		bindings.indices.push_back(0);
+		bindings.types.push_back(vk::DescriptorType::eUniformBuffer);
+		bindings.counts.push_back(1);
+		bindings.stages.push_back(vk::ShaderStageFlagBits::eVertex);
+
+		descriptorSetLayout = vkInit::make_descriptor_set_layout(m_device, bindings);
+
+}
+
 void Renderer::MakePipeline()
 {
 	vkInit::GraphicsPipelineInBundle specification = {};
@@ -156,6 +181,7 @@ void Renderer::MakePipeline()
 	specification.fragmentFilepath = "shaders/fragment.spv";
 	specification.swapchainExtent = m_swapchainExtent;
 	specification.swapchainImageFormat = m_swapchainFormat;
+	specification.descriptorSetLayout = descriptorSetLayout;
 
 	vkInit::GraphicsPipelineOutBundle output = vkInit::create_graphics_pipeline(
 		specification, m_debug
@@ -177,7 +203,7 @@ void Renderer::FinalizeSetup()
 	m_mainCommandBuffer = vkInit::make_command_buffer(commandBufferInput, m_debug);
 	vkInit::make_frame_command_buffers(commandBufferInput, m_debug);
 	
-	MakeFrameSyncObjects();
+	MakeFrameResources();
 }
 
 void Renderer::MakeSwapchain()
@@ -207,7 +233,7 @@ void Renderer::RecreateSwapchain()
 	DestroySwapchain();
 	MakeSwapchain();
 	MakeFramebuffers();
-	MakeFrameSyncObjects();
+	MakeFrameResources();
 
 	vkInit::commandBufferInputChunk commandBufferInput = { m_device, m_commandPool, m_swapchainFrames };
 	vkInit::make_frame_command_buffers(commandBufferInput, m_debug);
@@ -222,6 +248,11 @@ void Renderer::DestroySwapchain()
 		m_device.destroySemaphore(frame.imageAvailable);
 		m_device.destroySemaphore(frame.renderFinished);
 		m_device.destroyFence(frame.inFlight);
+
+		m_device.unmapMemory(frame.cameraDataBuffer.bufferMemory);
+		m_device.freeMemory(frame.cameraDataBuffer.bufferMemory);
+		m_device.destroyBuffer(frame.cameraDataBuffer.buffer);
+
 	}
 
 	m_device.destroySwapchainKHR(m_swapchain);
@@ -237,14 +268,28 @@ void Renderer::MakeFramebuffers()
 	vkInit::makeFramebuffers(frameBufferInput, m_swapchainFrames, m_debug);
 }
 
-void Renderer::MakeFrameSyncObjects()
+void Renderer::MakeFrameResources()
 {
+
+	vkInit::descriptorSetLayoutData bindings;
+	bindings.count = 1;
+	bindings.indices.push_back(0);
+	bindings.types.push_back(vk::DescriptorType::eUniformBuffer);
+	bindings.counts.push_back(1);
+	bindings.stages.push_back(vk::ShaderStageFlagBits::eVertex);
+
+	descriptorPool = vkInit::make_descriptor_pool(m_device, static_cast<uint32_t>(m_swapchainFrames.size()), bindings);
 
 	for (vkUtil::SwapChainFrame& frame : m_swapchainFrames) 
 	{
 		frame.imageAvailable = vkInit::make_semaphore(m_device, m_debug);
 		frame.renderFinished = vkInit::make_semaphore(m_device, m_debug);
 		frame.inFlight = vkInit::make_fence(m_device, m_debug);
+
+		frame.make_ubo_resources(m_device, m_physicalDevice);
+
+		frame.descriptorSet = vkInit::allocate_descriptor_set(m_device, descriptorPool, descriptorSetLayout);
+
 	}
 }
 
@@ -273,6 +318,9 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	renderPassInfo.pClearValues = &clearColor;
 
 	commandBuffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+
+
+	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 0, m_swapchainFrames[imageIndex].descriptorSet, nullptr);
 
 	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 	
@@ -306,6 +354,26 @@ void Renderer::PrepareScene(vk::CommandBuffer commandBuffer)
 	vk::Buffer vertexBuffers[] = { triangleMesh->vertexBuffer.buffer };
 	vk::DeviceSize offsets[] = { 0 };
 	commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
+}
+
+void Renderer::PrepareFrame(uint32_t imageIndex)
+{
+	glm::vec3 eye = { 1.0f, 0.0f, -1.0f };
+	glm::vec3 center = { 0.0f, 0.0f, 0.0f };
+	glm::vec3 up = { 0.0f, 0.0f, -1.0f };
+	glm::mat4 view = glm::lookAt(eye, center, up);
+
+	glm::mat4 projection = glm::perspective(glm::radians(45.0f), static_cast<float>(m_swapchainExtent.width) / static_cast<float>(m_swapchainExtent.height), 0.1f, 10.0f);
+	projection[1][1] *= -1;
+
+	m_swapchainFrames[imageIndex].cameraData.view = view;
+	m_swapchainFrames[imageIndex].cameraData.projection = projection;
+	m_swapchainFrames[imageIndex].cameraData.viewProjection = projection * view;
+	
+	
+	memcpy(m_swapchainFrames[imageIndex].cameraDataWriteLocation, &(m_swapchainFrames[imageIndex].cameraData), sizeof(vkUtil::UBO));
+
+	m_swapchainFrames[imageIndex].write_descriptor_set(m_device);
 }
 
 

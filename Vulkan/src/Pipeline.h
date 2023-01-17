@@ -12,6 +12,7 @@ namespace vkInit {
 		std::string fragmentFilepath;
 		vk::Extent2D swapchainExtent;
 		vk::Format swapchainImageFormat;
+		vk::DescriptorSetLayout descriptorSetLayout;
 	};
 
 	/**
@@ -24,11 +25,13 @@ namespace vkInit {
 		vk::Pipeline pipeline;
 	};
 
-	vk::PipelineLayout make_pipeline_layout(vk::Device device, bool debug) {
+	vk::PipelineLayout make_pipeline_layout(vk::Device device, vk::DescriptorSetLayout  layout,bool debug) {
 
 		vk::PipelineLayoutCreateInfo layoutInfo;
 		layoutInfo.flags = vk::PipelineLayoutCreateFlags();
-		layoutInfo.setLayoutCount = 0;
+		layoutInfo.setLayoutCount = 1;
+		layoutInfo.pSetLayouts = &layout;
+
 		layoutInfo.pushConstantRangeCount = 0;
 		try {
 			return device.createPipelineLayout(layoutInfo);
@@ -205,7 +208,7 @@ namespace vkInit {
 		if (debug) {
 			std::cout << "Create Pipeline Layout" << std::endl;
 		}
-		vk::PipelineLayout m_pipelineLayout = make_pipeline_layout(specification.device, debug);
+		vk::PipelineLayout m_pipelineLayout = make_pipeline_layout(specification.device, specification.descriptorSetLayout, debug);
 		pipelineInfo.layout = m_pipelineLayout;
 
 		//Renderpass

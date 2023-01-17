@@ -143,6 +143,7 @@
     <ClCompile Include="src\TriangleMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Descriptors.h" />
     <ClInclude Include="src\Memory.h" />
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\App.h" />

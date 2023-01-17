@@ -15,6 +15,9 @@ private:
 	void BuildWindow();
 	void CreateInstance();
 	void CreateDevice();
+
+
+	void MakeDescriptorSetLayout();
 	void MakePipeline();
 
 	void FinalizeSetup();
@@ -24,7 +27,7 @@ private:
 	void DestroySwapchain();
 
 	void MakeFramebuffers();
-	void MakeFrameSyncObjects();
+	void MakeFrameResources();
 
 
 
@@ -34,7 +37,7 @@ private:
 	void MakeAssets();
 
 	void PrepareScene(vk::CommandBuffer commandBuffer);
-
+	void PrepareFrame(uint32_t imageIndex);
 
 private:
 	bool m_debug;
@@ -83,6 +86,11 @@ private:
 
 	//asset pointers
 	TriangleMesh* triangleMesh;
+
+	//descriptor-related variables
+	vk::DescriptorSetLayout descriptorSetLayout;
+	vk::DescriptorPool descriptorPool;
+
 
 
 };
