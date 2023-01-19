@@ -5,13 +5,16 @@ Mesh::Mesh(vk::Device logicalDevice, vk::PhysicalDevice physicalDevice) {
 	this->logicalDevice = logicalDevice;
 
 	std::vector<float> vertices = { {
-		 -0.1f,  0.1f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-		-0.1f, -0.1f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-		 0.1f, -0.1f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		 0.1f, -0.1f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		 0.1f,  0.1f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		-0.1f,  0.1f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f
+		 -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		-0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		 0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		 0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		-0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f
 	} };
+
+
+
 
 	BufferInputChunk inputChunk;
 	inputChunk.logicalDevice = logicalDevice;

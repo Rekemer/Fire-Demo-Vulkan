@@ -11,5 +11,5 @@ void main() {
 	outColor = vec4(in_color, 1.0);
 	outColor = vec4(1,1,1, 1.0);
 	outColor = texture(u_image,uv);
-	outColor = vec4(uv,0,1);
+	//outColor = vec4(uv,0,1);
 }

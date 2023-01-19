@@ -421,7 +421,20 @@ void Renderer::PrepareScene(vk::CommandBuffer commandBuffer)
 glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
 	float field_of_view,
 	float near_plane,
-	float far_plane) {
+	float far_plane)
+{
+
+	const float tanHalfFovy = glm::tan(field_of_view / 2.f);
+
+	auto projectionMatrix = glm::mat4{ 0.0f };
+	projectionMatrix[0][0] = 1.f / (aspect_ratio * tanHalfFovy);
+	projectionMatrix[1][1] = 1.f / (tanHalfFovy);
+	projectionMatrix[2][2] = far_plane / (far_plane - near_plane);
+	projectionMatrix[2][3] = 1.f;
+	projectionMatrix[3][2] = -(far_plane * near_plane) / (far_plane - near_plane);
+
+	return projectionMatrix;
+
 	float f =  glm::tan(glm::radians(0.5f * field_of_view));
 	auto inverse_aspec = 1.f / aspect_ratio;
 	glm::mat4 perspective_projection_matrix = {
@@ -452,7 +465,7 @@ glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
 void Renderer::PrepareFrame(uint32_t imageIndex)
 {
 	glm::vec3 posCamera = { .0f, 0.0f,-2.0f };
-	glm::vec3 target = { 0.0f, 0.0f, 1.0f };
+	glm::vec3 target = { 0.0f, 0.0f, 0.0f };
 	glm::vec3 up = { 0.0f, 1.0f, .0f };
 	glm::mat4 view = glm::lookAt(posCamera, target,  up);
 
@@ -480,11 +493,18 @@ void Renderer::PrepareFrame(uint32_t imageIndex)
 
 	glm::vec4 v { -0.1f,  0.1f ,0,1 };
 
+
+
+	
+
+
 	auto ans = projCustom * view * v;
 	auto ans1 = projection * view * v;
 	m_swapchainFrames[imageIndex].cameraData.view = view;
 	m_swapchainFrames[imageIndex].cameraData.projection = projection;
-	m_swapchainFrames[imageIndex].cameraData.viewProjection = projection * view;
+	auto translate = glm::translate(glm::mat4(1.f), glm::vec3{ 0,0,2 });
+	translate *= glm::rotate(glm::mat4(1.f), glm::radians(0.f), glm::vec3(0.0f, 1.0f, 0.0f));
+	m_swapchainFrames[imageIndex].cameraData.viewProjection = projection *  translate;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = projection;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = ortho;
 	

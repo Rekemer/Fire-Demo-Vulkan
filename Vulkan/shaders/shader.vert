@@ -31,7 +31,7 @@ layout(location = 1) out vec2 uv;
 
 void main() 
 {
-	gl_Position = cameraData.viewProjection*vec4(in_pos, 0, 1.0);
+	gl_Position = cameraData.viewProjection*mat4(1)*vec4(in_pos, 0, 1.0);
 	fragColor = in_color;
 	vec2 inverted_uv = vec2(in_uv.x,in_uv.y);
 	uv = inverted_uv;
