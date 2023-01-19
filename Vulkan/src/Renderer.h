@@ -2,6 +2,7 @@
 #include "vulkan/vulkan.hpp"
 #include"Frame.h"
 #include "TriangleMesh.h"
+#include "Image.h"
 class GLFWwindow;
 
 
@@ -17,7 +18,7 @@ private:
 	void CreateDevice();
 
 
-	void MakeDescriptorSetLayout();
+	void MakeDescriptorSetLayouts();
 	void MakePipeline();
 
 	void FinalizeSetup();
@@ -85,12 +86,19 @@ private:
 
 
 	//asset pointers
-	TriangleMesh* triangleMesh;
+	Mesh* triangleMesh;
 
 	//descriptor-related variables
-	vk::DescriptorSetLayout descriptorSetLayout;
-	vk::DescriptorPool descriptorPool;
+	
 
+	//descriptor-related variables
+	vk::DescriptorSetLayout frameSetLayout;
+	vk::DescriptorPool frameDescriptorPool; //Descriptors bound on a "per frame" basis
+	vk::DescriptorSetLayout meshSetLayout;
+	vk::DescriptorPool meshDescriptorPool; //Descriptors bound on a "per mesh" basi
+
+
+	vkImage::Texture* texture;
 
 
 };

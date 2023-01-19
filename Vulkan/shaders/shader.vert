@@ -15,7 +15,7 @@ vec3 colors[3] = vec3[](
 	vec3(0.0, 0.0, 1.0)
 );
 
-layout(binding = 0) uniform UBO {
+layout(set = 0, binding = 0) uniform UBO {
 	mat4 view;
 	mat4 projection;
 	mat4 viewProjection;
@@ -24,9 +24,15 @@ layout(binding = 0) uniform UBO {
 
 layout(location = 0) in vec2 in_pos;
 layout(location = 1) in vec3 in_color;
-layout(location = 0) out vec3 fragColor;
+layout(location = 2) in vec2 in_uv;
 
-void main() {
-	gl_Position = cameraData.viewProjection*vec4(in_pos, 0.0, 1.0);
+layout(location = 0) out vec3 fragColor;
+layout(location = 1) out vec2 uv;
+
+void main() 
+{
+	gl_Position = cameraData.viewProjection*vec4(in_pos, 0, 1.0);
 	fragColor = in_color;
+	vec2 inverted_uv = vec2(in_uv.x,in_uv.y);
+	uv = inverted_uv;
 }

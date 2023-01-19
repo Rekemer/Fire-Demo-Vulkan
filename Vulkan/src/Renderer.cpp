@@ -10,7 +10,8 @@
 #include "Descriptors.h"
 
 
-
+#define BUILD 0
+std::string exe = "../../../Vulkan/";
 Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 	m_width{width},
 	m_height{ height },
@@ -20,7 +21,7 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 	CreateInstance();
 	CreateDevice();
 
-	MakeDescriptorSetLayout();
+	MakeDescriptorSetLayouts();
 
 	MakePipeline();
 	FinalizeSetup();
@@ -104,12 +105,14 @@ Renderer::~Renderer()
 	m_device.destroyPipelineLayout(m_pipelineLayout);
 	m_device.destroyRenderPass(m_renderpass);
 	m_device.destroyCommandPool(m_commandPool);
-	m_device.destroyDescriptorSetLayout(descriptorSetLayout);
-	m_device.destroyDescriptorPool(descriptorPool);
-	
+	m_device.destroyDescriptorSetLayout(frameSetLayout);
+	m_device.destroyDescriptorPool(frameDescriptorPool);
+
+	m_device.destroyDescriptorSetLayout(meshSetLayout);
+	m_device.destroyDescriptorPool(meshDescriptorPool);
 
 	delete triangleMesh;
-			
+	delete texture;
 
 	m_device.destroy();
 	m_instance.destroyDebugUtilsMessengerEXT(m_debugMessenger, nullptr, m_dldi);
@@ -156,32 +159,53 @@ void Renderer::CreateDevice()
 
 }
 
-void Renderer::MakeDescriptorSetLayout()
+void Renderer::MakeDescriptorSetLayouts()
 {
 		/*
 			There is just one binding, it's at binding 0,
 			is a single uniform buffer, to be bound to the vertex shader stage.
 		*/
 		vkInit::descriptorSetLayoutData bindings;
+
+
+
 		bindings.count = 1;
 		bindings.indices.push_back(0);
 		bindings.types.push_back(vk::DescriptorType::eUniformBuffer);
 		bindings.counts.push_back(1);
 		bindings.stages.push_back(vk::ShaderStageFlagBits::eVertex);
 
-		descriptorSetLayout = vkInit::make_descriptor_set_layout(m_device, bindings);
+		frameSetLayout = vkInit::make_descriptor_set_layout(m_device, bindings);
+
+
+		bindings.count = 1;
+		bindings.indices[0] = 0;
+		bindings.types[0] = (vk::DescriptorType::eCombinedImageSampler);
+		bindings.counts[0] = (1);
+		bindings.stages[0] = (vk::ShaderStageFlagBits::eFragment);
+
+		meshSetLayout = vkInit::make_descriptor_set_layout(m_device, bindings);
 
 }
+
+
 
 void Renderer::MakePipeline()
 {
 	vkInit::GraphicsPipelineInBundle specification = {};
 	specification.device = m_device;
+	
+#if BUILD
+	specification.vertexFilepath = exe+"shaders/vertex.spv";
+	specification.fragmentFilepath = exe+"shaders/fragment.spv";
+#else
 	specification.vertexFilepath = "shaders/vertex.spv";
 	specification.fragmentFilepath = "shaders/fragment.spv";
+#endif // BUILD
+
 	specification.swapchainExtent = m_swapchainExtent;
 	specification.swapchainImageFormat = m_swapchainFormat;
-	specification.descriptorSetLayout = descriptorSetLayout;
+	specification.descriptorSetLayout = {frameSetLayout,meshSetLayout};
 
 	vkInit::GraphicsPipelineOutBundle output = vkInit::create_graphics_pipeline(
 		specification, m_debug
@@ -278,7 +302,7 @@ void Renderer::MakeFrameResources()
 	bindings.counts.push_back(1);
 	bindings.stages.push_back(vk::ShaderStageFlagBits::eVertex);
 
-	descriptorPool = vkInit::make_descriptor_pool(m_device, static_cast<uint32_t>(m_swapchainFrames.size()), bindings);
+	frameDescriptorPool = vkInit::make_descriptor_pool(m_device, static_cast<uint32_t>(m_swapchainFrames.size()), bindings);
 
 	for (vkUtil::SwapChainFrame& frame : m_swapchainFrames) 
 	{
@@ -288,7 +312,7 @@ void Renderer::MakeFrameResources()
 
 		frame.make_ubo_resources(m_device, m_physicalDevice);
 
-		frame.descriptorSet = vkInit::allocate_descriptor_set(m_device, descriptorPool, descriptorSetLayout);
+		frame.descriptorSet = vkInit::allocate_descriptor_set(m_device, frameDescriptorPool, frameSetLayout);
 
 	}
 }
@@ -326,7 +350,9 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	
 	PrepareScene(commandBuffer);
 
-	commandBuffer.draw(3, 1, 0, 0);
+	texture->use(commandBuffer,m_pipelineLayout);
+
+	commandBuffer.draw(6, 1, 0, 0);
 
 	commandBuffer.endRenderPass();
 
@@ -343,7 +369,43 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 
 void Renderer::MakeAssets()
 {
-	triangleMesh = new TriangleMesh(m_device, m_physicalDevice);
+	triangleMesh = new Mesh(m_device, m_physicalDevice);
+	//Materials
+
+	
+
+	//Make a descriptor pool to allocate sets.
+	vkInit::descriptorSetLayoutData bindings;
+	bindings.count = 1;
+	bindings.types.push_back(vk::DescriptorType::eCombinedImageSampler);
+	meshDescriptorPool = vkInit::make_descriptor_pool(m_device, 1, bindings);
+	
+
+    vkImage::TextureInputChunk textureInfo;
+
+
+
+#if BUILD
+
+	auto path =  exe + "res/coffee.jpg" ;
+
+	textureInfo.filename = path.c_str();
+#else
+	textureInfo.filename = "res/coffee.jpg";
+#endif
+
+	textureInfo.commandBuffer = m_mainCommandBuffer;
+	textureInfo.queue = m_graphicsQueue;
+	textureInfo.logicalDevice = m_device;
+	textureInfo.physicalDevice = m_physicalDevice;
+
+
+	
+	textureInfo.layout = meshSetLayout;
+	textureInfo.descriptorPool = meshDescriptorPool;
+	
+	texture = new vkImage::Texture{ textureInfo };
+	
 
 }
 
@@ -356,19 +418,75 @@ void Renderer::PrepareScene(vk::CommandBuffer commandBuffer)
 	commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
 }
 
+glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
+	float field_of_view,
+	float near_plane,
+	float far_plane) {
+	float f =  glm::tan(glm::radians(0.5f * field_of_view));
+	auto inverse_aspec = 1.f / aspect_ratio;
+	glm::mat4 perspective_projection_matrix = {
+	  inverse_aspec / f,
+	  0.0f,
+	  0.0f,
+	  0.0f,
+
+	  0.0f,
+	  1/f,
+	  0.0f,
+	  0.0f,
+
+	  0.0f,
+	  0.0f,
+	  far_plane / (far_plane-near_plane  ),
+	  1.0f,
+
+	  0.0f,
+	  0.0f,
+	  (1*near_plane) * (far_plane-near_plane),
+	  0.0f
+	};
+	return perspective_projection_matrix;
+}
+
+#include<gtc/matrix_access.hpp>
 void Renderer::PrepareFrame(uint32_t imageIndex)
 {
-	glm::vec3 eye = { 1.0f, 0.0f, -1.0f };
-	glm::vec3 center = { 0.0f, 0.0f, 0.0f };
-	glm::vec3 up = { 0.0f, 0.0f, -1.0f };
-	glm::mat4 view = glm::lookAt(eye, center, up);
+	glm::vec3 posCamera = { .0f, 0.0f,-2.0f };
+	glm::vec3 target = { 0.0f, 0.0f, 1.0f };
+	glm::vec3 up = { 0.0f, 1.0f, .0f };
+	glm::mat4 view = glm::lookAt(posCamera, target,  up);
 
-	glm::mat4 projection = glm::perspective(glm::radians(45.0f), static_cast<float>(m_swapchainExtent.width) / static_cast<float>(m_swapchainExtent.height), 0.1f, 10.0f);
+
+
+
+	float aspect = static_cast<float>(m_swapchainExtent.width) / static_cast<float>(m_swapchainExtent.height);
+	glm::mat4 projection = glm::perspective(glm::radians(45.0f), static_cast<float>(m_swapchainExtent.width) / static_cast<float>(m_swapchainExtent.height), 0.1f, 100.0f);
+	
+	
+	
 	projection[1][1] *= -1;
+	//glm::vec4 test= { 0.0f, .5f,0,1 };
+	//test = projection * test;
 
+	//glm::mat4 viewCustom{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{center,1} };
+	//viewCustom = glm::inverse(viewCustom);
+	
+	glm::mat4 projCustom = PreparePerspectiveProjectionMatrix(aspect, 45.0, 0.001f, 100.0f);
+	float left = -20;
+	float bottom = -20;
+	float top = 20;
+	float right = 20;
+	auto ortho = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 0.1f, 1000.0f);
+
+	glm::vec4 v { -0.1f,  0.1f ,0,1 };
+
+	auto ans = projCustom * view * v;
+	auto ans1 = projection * view * v;
 	m_swapchainFrames[imageIndex].cameraData.view = view;
 	m_swapchainFrames[imageIndex].cameraData.projection = projection;
 	m_swapchainFrames[imageIndex].cameraData.viewProjection = projection * view;
+	//m_swapchainFrames[imageIndex].cameraData.viewProjection = projection;
+	//m_swapchainFrames[imageIndex].cameraData.viewProjection = ortho;
 	
 	
 	memcpy(m_swapchainFrames[imageIndex].cameraDataWriteLocation, &(m_swapchainFrames[imageIndex].cameraData), sizeof(vkUtil::UBO));

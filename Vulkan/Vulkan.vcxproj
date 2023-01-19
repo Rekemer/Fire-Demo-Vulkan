@@ -137,13 +137,16 @@
   <ItemGroup>
     <ClCompile Include="src\App.cpp" />
     <ClCompile Include="src\FrameBuffer.h" />
+    <ClCompile Include="src\Image.cpp" />
     <ClCompile Include="src\Memory.cpp" />
     <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\SingleTImeCommands.cpp" />
     <ClCompile Include="src\TriangleMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Descriptors.h" />
+    <ClInclude Include="src\Image.h" />
     <ClInclude Include="src\Memory.h" />
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\App.h" />
@@ -157,6 +160,8 @@
     <ClInclude Include="src\Logging.h" />
     <ClInclude Include="src\Renderer.h" />
     <ClInclude Include="src\Shader.h" />
+    <ClInclude Include="src\SingleTimeCommands.h" />
+    <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\Swapchain.h" />
     <ClInclude Include="src\Sync.h" />
     <ClInclude Include="src\TriangleMesh.h" />

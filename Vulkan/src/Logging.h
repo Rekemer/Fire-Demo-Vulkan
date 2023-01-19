@@ -34,7 +34,7 @@ namespace vkInit
 			const VkDebugUtilsObjectNameInfoEXT*         pObjects;
 		} VkDebugUtilsMessengerCallbackDataEXT;
 	*/
-	VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	inline VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT messageType,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -45,7 +45,7 @@ namespace vkInit
 		return VK_FALSE;
 	}
 
-	vk::DebugUtilsMessengerEXT make_debug_messenger(vk::Instance& instance, vk::DispatchLoaderDynamic& dldi) {
+	inline vk::DebugUtilsMessengerEXT make_debug_messenger(vk::Instance& instance, vk::DispatchLoaderDynamic& dldi) {
 
 		/*
 		* DebugUtilsMessengerCreateInfoEXT( VULKAN_HPP_NAMESPACE::DebugUtilsMessengerCreateFlagsEXT flags_           = {},
@@ -66,7 +66,7 @@ namespace vkInit
 		return instance.createDebugUtilsMessengerEXT(createInfo, nullptr, dldi);
 	}
 
-	std::vector<std::string> log_transform_bits(vk::SurfaceTransformFlagsKHR bits) {
+	inline std::vector<std::string> log_transform_bits(vk::SurfaceTransformFlagsKHR bits) {
 		std::vector<std::string> result;
 
 		/*
@@ -113,7 +113,7 @@ namespace vkInit
 		return result;
 	}
 
-	std::vector<std::string> log_alpha_composite_bits(vk::CompositeAlphaFlagsKHR bits) {
+	inline std::vector<std::string> log_alpha_composite_bits(vk::CompositeAlphaFlagsKHR bits) {
 		std::vector<std::string> result;
 
 		/*
@@ -140,7 +140,7 @@ namespace vkInit
 		return result;
 	}
 
-	std::vector<std::string> log_image_usage_bits(vk::ImageUsageFlags bits) {
+	inline std::vector<std::string> log_image_usage_bits(vk::ImageUsageFlags bits) {
 		std::vector<std::string> result;
 
 		/*
@@ -232,7 +232,7 @@ suitable for use as a fragment shading rate attachment or shading rate image");
 		return result;
 	}
 
-	std::string log_present_mode(vk::PresentModeKHR presentMode) {
+	inline std::string log_present_mode(vk::PresentModeKHR presentMode) {
 		/*
 		* // Provided by VK_KHR_surface
 		typedef enum VkPresentModeKHR {

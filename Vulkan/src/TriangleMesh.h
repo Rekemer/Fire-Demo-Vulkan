@@ -5,10 +5,10 @@
 /**
 	Holds a vertex buffer for a triangle mesh.
 */
-class TriangleMesh {
+class Mesh {
 public:
-	TriangleMesh(vk::Device logicalDevice, vk::PhysicalDevice physicalDevice);
-	~TriangleMesh();
+	Mesh(vk::Device logicalDevice, vk::PhysicalDevice physicalDevice);
+	~Mesh();
 	Buffer vertexBuffer;
 private:
 	vk::Device logicalDevice;

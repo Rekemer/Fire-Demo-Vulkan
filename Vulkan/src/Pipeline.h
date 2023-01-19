@@ -12,7 +12,7 @@ namespace vkInit {
 		std::string fragmentFilepath;
 		vk::Extent2D swapchainExtent;
 		vk::Format swapchainImageFormat;
-		vk::DescriptorSetLayout descriptorSetLayout;
+		std::vector<vk::DescriptorSetLayout> descriptorSetLayout;
 	};
 
 	/**
@@ -25,12 +25,12 @@ namespace vkInit {
 		vk::Pipeline pipeline;
 	};
 
-	vk::PipelineLayout make_pipeline_layout(vk::Device device, vk::DescriptorSetLayout  layout,bool debug) {
+	vk::PipelineLayout make_pipeline_layout(vk::Device device, std::vector<vk::DescriptorSetLayout> layout,bool debug) {
 
 		vk::PipelineLayoutCreateInfo layoutInfo;
 		layoutInfo.flags = vk::PipelineLayoutCreateFlags();
-		layoutInfo.setLayoutCount = 1;
-		layoutInfo.pSetLayouts = &layout;
+		layoutInfo.setLayoutCount = layout.size();
+		layoutInfo.pSetLayouts = layout.data();
 
 		layoutInfo.pushConstantRangeCount = 0;
 		try {
@@ -102,13 +102,12 @@ namespace vkInit {
 
 
 		vk::VertexInputBindingDescription bindingDescription = vkMesh::getPosColorBindingDescription();
-		std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions 
-			= vkMesh::getPosColorAttributeDescriptions();
+		auto  attributeDescriptions = vkMesh::getPosColorAttributeDescriptions();
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.flags = vk::PipelineVertexInputStateCreateFlags();
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-		vertexInputInfo.vertexAttributeDescriptionCount = 2;
+		vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 
