@@ -455,7 +455,7 @@ glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
 
 	  0.0f,
 	  0.0f,
-	  (1*near_plane) * (far_plane-near_plane),
+	  (-1*near_plane) * (far_plane-near_plane),
 	  0.0f
 	};
 	return perspective_projection_matrix;
@@ -478,11 +478,11 @@ void Renderer::PrepareFrame(uint32_t imageIndex)
 	
 	
 	projection[1][1] *= -1;
-	//glm::vec4 test= { 0.0f, .5f,0,1 };
-	//test = projection * test;
 
-	//glm::mat4 viewCustom{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{center,1} };
-	//viewCustom = glm::inverse(viewCustom);
+
+	// glm is left handed (left handed cross product?) that is why we negate to get right handed system and camera moves  in left coordinate system!
+     glm::mat4 viewCustom{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{0,0,10,1} };
+     viewCustom = glm::inverse(viewCustom);
 	
 	glm::mat4 projCustom = PreparePerspectiveProjectionMatrix(aspect, 45.0, 0.001f, 100.0f);
 	float left = -20;
@@ -491,20 +491,21 @@ void Renderer::PrepareFrame(uint32_t imageIndex)
 	float right = 20;
 	auto ortho = glm::ortho(0.0f, 1.0f, 1.0f, 0.0f, 0.1f, 1000.0f);
 
-	glm::vec4 v { -0.1f,  0.1f ,0,1 };
 
 
 
+	 glm::vec4 test= { -0.5f,  0.5f,0,1 };
+
+	test = projCustom * viewCustom * test;
 	
 
 
-	auto ans = projCustom * view * v;
-	auto ans1 = projection * view * v;
+
 	m_swapchainFrames[imageIndex].cameraData.view = view;
 	m_swapchainFrames[imageIndex].cameraData.projection = projection;
 	auto translate = glm::translate(glm::mat4(1.f), glm::vec3{ 0,0,2 });
-	translate *= glm::rotate(glm::mat4(1.f), glm::radians(0.f), glm::vec3(0.0f, 1.0f, 0.0f));
-	m_swapchainFrames[imageIndex].cameraData.viewProjection = projection *  translate;
+	//translate *= glm::rotate(glm::mat4(1.f), glm::radians(0.f), glm::vec3(0.0f, 1.0f, 0.0f));
+	m_swapchainFrames[imageIndex].cameraData.viewProjection = projCustom * viewCustom;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = projection;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = ortho;
 	

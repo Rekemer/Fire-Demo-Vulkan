@@ -54,7 +54,7 @@ void vkImage::Texture::load() {
 	
 
 	
-
+	stbi_set_flip_vertically_on_load(true);
 	pixels = stbi_load(filename, &width, &height, &channels, STBI_rgb_alpha);
 	if (!pixels) {
 		std::cout << "Unable to load: " << filename << "\n";
