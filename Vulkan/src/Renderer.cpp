@@ -352,7 +352,8 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 
 	texture->use(commandBuffer,m_pipelineLayout);
 
-	commandBuffer.draw(6, 1, 0, 0);
+	//commandBuffer.draw(6, 1, 0, 0);
+	commandBuffer.drawIndexed(6,1,0,0,0);
 
 	commandBuffer.endRenderPass();
 
@@ -416,6 +417,7 @@ void Renderer::PrepareScene(vk::CommandBuffer commandBuffer)
 	vk::Buffer vertexBuffers[] = { triangleMesh->vertexBuffer.buffer };
 	vk::DeviceSize offsets[] = { 0 };
 	commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
+	commandBuffer.bindIndexBuffer(triangleMesh->indexBuffer.buffer,0,vk::IndexType::eUint32);
 }
 
 glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
@@ -479,10 +481,11 @@ void Renderer::PrepareFrame(uint32_t imageIndex)
 	
 	projection[1][1] *= -1;
 
-
-	// glm is left handed (left handed cross product?) that is why we negate to get right handed system and camera moves  in left coordinate system!
-     glm::mat4 viewCustom{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{0,0,10,1} };
-     viewCustom = glm::inverse(viewCustom);
+	
+	 // view matrix  is inverse(transpose) of camera transform matrix that moves objects to world zero coordinates
+	 // direction of z is specified by handiness of world system (resulr of cross product)
+     glm::mat4 cameraWorld{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{0,0,12,1} };
+     view = glm::inverse(cameraWorld);
 	
 	glm::mat4 projCustom = PreparePerspectiveProjectionMatrix(aspect, 45.0, 0.001f, 100.0f);
 	float left = -20;
@@ -496,16 +499,23 @@ void Renderer::PrepareFrame(uint32_t imageIndex)
 
 	 glm::vec4 test= { -0.5f,  0.5f,0,1 };
 
-	test = projCustom * viewCustom * test;
+	glm::mat4 world = glm::mat4
+	(   1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 2,
+		0, 0, 0, 1
+	);
+
+	auto translate = glm::translate(glm::mat4(1.f), glm::vec3{ 0,0,12 });
+
+	auto worldSpaceCoords = translate * test;
+
 	
-
-
 
 	m_swapchainFrames[imageIndex].cameraData.view = view;
 	m_swapchainFrames[imageIndex].cameraData.projection = projection;
-	auto translate = glm::translate(glm::mat4(1.f), glm::vec3{ 0,0,2 });
 	//translate *= glm::rotate(glm::mat4(1.f), glm::radians(0.f), glm::vec3(0.0f, 1.0f, 0.0f));
-	m_swapchainFrames[imageIndex].cameraData.viewProjection = projCustom * viewCustom;
+	m_swapchainFrames[imageIndex].cameraData.viewProjection = projCustom * view;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = projection;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = ortho;
 	

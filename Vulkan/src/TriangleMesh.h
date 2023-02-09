@@ -10,6 +10,7 @@ public:
 	Mesh(vk::Device logicalDevice, vk::PhysicalDevice physicalDevice);
 	~Mesh();
 	Buffer vertexBuffer;
+	Buffer indexBuffer;
 private:
 	vk::Device logicalDevice;
 };
