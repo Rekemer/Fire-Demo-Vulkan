@@ -15,7 +15,8 @@ vkImage::Texture::Texture(TextureInputChunk input) {
 	queue = input.queue;
 	layout = input.layout;
 	descriptorPool = input.descriptorPool;
-
+	binding = input.binding;
+	descriptorSet = input.descriptorSet;
 	load();
 
 	ImageInputChunk imageInput;
@@ -166,7 +167,7 @@ void vkImage::Texture::make_sampler() {
 
 void vkImage::Texture::make_descriptor_set() {
 
-	descriptorSet = vkInit::allocate_descriptor_set(logicalDevice, descriptorPool, layout);
+	/*descriptorSet = vkInit::allocate_descriptor_set(logicalDevice, descriptorPool, layout);*/
 
 	vk::DescriptorImageInfo imageDescriptor;
 	imageDescriptor.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -175,7 +176,7 @@ void vkImage::Texture::make_descriptor_set() {
 
 	vk::WriteDescriptorSet descriptorWrite;
 	descriptorWrite.dstSet = descriptorSet;
-	descriptorWrite.dstBinding = 0;
+	descriptorWrite.dstBinding = binding;
 	descriptorWrite.dstArrayElement = 0;
 	descriptorWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
 	descriptorWrite.descriptorCount = 1;

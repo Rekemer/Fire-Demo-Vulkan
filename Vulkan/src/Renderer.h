@@ -95,10 +95,15 @@ private:
 	vk::DescriptorSetLayout frameSetLayout;
 	vk::DescriptorPool frameDescriptorPool; //Descriptors bound on a "per frame" basis
 	vk::DescriptorSetLayout meshSetLayout;
-	vk::DescriptorPool meshDescriptorPool; //Descriptors bound on a "per mesh" basi
+	vk::DescriptorPool meshDescriptorPool; //Descriptors bound on a "per mesh" basis
+
+	vk::DescriptorSet descriptorSetTextures;
 
 
-	vkImage::Texture* texture;
+
+	vkImage::Texture* textureNoise;
+	vkImage::Texture* textureFlame;
+	vkImage::Texture* textureFlameColor;
 
 
 };

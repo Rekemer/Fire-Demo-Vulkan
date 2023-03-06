@@ -112,8 +112,11 @@ Renderer::~Renderer()
 	m_device.destroyDescriptorPool(meshDescriptorPool);
 
 	delete triangleMesh;
-	delete texture;
+	delete textureNoise;
+	delete textureFlameColor;
+	delete textureFlame;
 
+	
 	m_device.destroy();
 	m_instance.destroyDebugUtilsMessengerEXT(m_debugMessenger, nullptr, m_dldi);
 	m_instance.destroySurfaceKHR(m_surface);
@@ -178,11 +181,19 @@ void Renderer::MakeDescriptorSetLayouts()
 		frameSetLayout = vkInit::make_descriptor_set_layout(m_device, bindings);
 
 
-		bindings.count = 1;
+		bindings.count = 3;
 		bindings.indices[0] = 0;
+		bindings.indices.push_back(1);
+		bindings.indices.push_back(2);
 		bindings.types[0] = (vk::DescriptorType::eCombinedImageSampler);
+		bindings.types.push_back(vk::DescriptorType::eCombinedImageSampler);
+		bindings.types.push_back(vk::DescriptorType::eCombinedImageSampler);
 		bindings.counts[0] = (1);
+		bindings.counts.push_back(1);
+		bindings.counts.push_back(1);
 		bindings.stages[0] = (vk::ShaderStageFlagBits::eFragment);
+		bindings.stages.push_back(vk::ShaderStageFlagBits::eFragment);
+		bindings.stages.push_back(vk::ShaderStageFlagBits::eFragment);
 
 		meshSetLayout = vkInit::make_descriptor_set_layout(m_device, bindings);
 
@@ -312,7 +323,7 @@ void Renderer::MakeFrameResources()
 
 		frame.make_ubo_resources(m_device, m_physicalDevice);
 
-		frame.descriptorSet = vkInit::allocate_descriptor_set(m_device, frameDescriptorPool, frameSetLayout);
+	    frame.descriptorSet = vkInit::allocate_descriptor_set(m_device, frameDescriptorPool, frameSetLayout);
 
 	}
 }
@@ -350,7 +361,9 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	
 	PrepareScene(commandBuffer);
 
-	texture->use(commandBuffer,m_pipelineLayout);
+	textureNoise->use(commandBuffer,m_pipelineLayout);
+	textureFlame->use(commandBuffer,m_pipelineLayout);
+	textureFlameColor->use(commandBuffer,m_pipelineLayout);
 
 	//commandBuffer.draw(6, 1, 0, 0);
 	commandBuffer.drawIndexed(6,1,0,0,0);
@@ -377,35 +390,71 @@ void Renderer::MakeAssets()
 
 	//Make a descriptor pool to allocate sets.
 	vkInit::descriptorSetLayoutData bindings;
-	bindings.count = 1;
+	bindings.count = 3;
+	bindings.types.push_back(vk::DescriptorType::eCombinedImageSampler);
+	bindings.types.push_back(vk::DescriptorType::eCombinedImageSampler);
 	bindings.types.push_back(vk::DescriptorType::eCombinedImageSampler);
 	meshDescriptorPool = vkInit::make_descriptor_pool(m_device, 1, bindings);
 	
 
-    vkImage::TextureInputChunk textureInfo;
+    vkImage::TextureInputChunk textureInfoNoise;
+    vkImage::TextureInputChunk textureInfoflame;
+    vkImage::TextureInputChunk textureInfoflameColor;
 
-
+	descriptorSetTextures = vkInit::allocate_descriptor_set(m_device, meshDescriptorPool, meshSetLayout);
 
 #if BUILD
 
 	auto path =  exe + "res/coffee.jpg" ;
 
-	textureInfo.filename = path.c_str();
+	textureInfoNoise.filename = path.c_str();
 #else
-	textureInfo.filename = "res/coffee.jpg";
+	textureInfoNoise.filename = "res/noise.jpg";
 #endif
 
-	textureInfo.commandBuffer = m_mainCommandBuffer;
-	textureInfo.queue = m_graphicsQueue;
-	textureInfo.logicalDevice = m_device;
-	textureInfo.physicalDevice = m_physicalDevice;
+	textureInfoNoise.commandBuffer = m_mainCommandBuffer;
+	textureInfoNoise.queue = m_graphicsQueue;
+	textureInfoNoise.logicalDevice = m_device;
+	textureInfoNoise.physicalDevice = m_physicalDevice;
+	textureInfoNoise.descriptorSet = descriptorSetTextures;
 
 
 	
-	textureInfo.layout = meshSetLayout;
-	textureInfo.descriptorPool = meshDescriptorPool;
+	textureInfoNoise.layout = meshSetLayout;
+	textureInfoNoise.descriptorPool = meshDescriptorPool;
+	textureInfoNoise.binding=0;
 	
-	texture = new vkImage::Texture{ textureInfo };
+
+	textureInfoflame.filename = "res/flame.png";
+	textureInfoflame.commandBuffer = m_mainCommandBuffer;
+	textureInfoflame.queue = m_graphicsQueue;
+	textureInfoflame.logicalDevice = m_device;
+	textureInfoflame.physicalDevice = m_physicalDevice;
+
+
+
+	textureInfoflame.layout = meshSetLayout;
+	textureInfoflame.descriptorPool = meshDescriptorPool;
+	textureInfoflame.binding=1;
+	textureInfoflame.descriptorSet = descriptorSetTextures;
+
+	textureInfoflameColor.filename = "res/flameColor.png";
+	textureInfoflameColor.commandBuffer = m_mainCommandBuffer;
+	textureInfoflameColor.queue = m_graphicsQueue;
+	textureInfoflameColor.logicalDevice = m_device;
+	textureInfoflameColor.physicalDevice = m_physicalDevice;
+
+
+
+	textureInfoflameColor.layout = meshSetLayout;
+	textureInfoflameColor.descriptorPool = meshDescriptorPool;
+	textureInfoflameColor.binding=2;
+	textureInfoflameColor.descriptorSet = descriptorSetTextures;
+
+
+	textureNoise = new vkImage::Texture{ textureInfoNoise };
+	textureFlame = new vkImage::Texture{ textureInfoflame };
+    textureFlameColor = new vkImage::Texture{ textureInfoflameColor};
 	
 
 }

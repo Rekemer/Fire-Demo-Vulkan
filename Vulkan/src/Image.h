@@ -15,6 +15,8 @@ namespace vkImage {
 		vk::Queue queue;
 		vk::DescriptorSetLayout layout;
 		vk::DescriptorPool descriptorPool;
+		vk::DescriptorSet descriptorSet;
+		int32_t binding;
 	};
 
 	/**
@@ -79,8 +81,12 @@ namespace vkImage {
 		vk::DescriptorSet descriptorSet;
 		vk::DescriptorPool descriptorPool;
 
+		int32_t binding;
+
 		vk::CommandBuffer commandBuffer;
 		vk::Queue queue;
+
+
 
 		/**
 			Load the raw image data from the internally set filepath.

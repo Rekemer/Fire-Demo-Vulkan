@@ -190,7 +190,15 @@ namespace vkInit {
 		//Color Blend
 		vk::PipelineColorBlendAttachmentState colorBlendAttachment = {};
 		colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-		colorBlendAttachment.blendEnable = VK_FALSE;
+		
+		
+		colorBlendAttachment.blendEnable = VK_TRUE;
+		colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+		colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+		colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+
+
+
 		vk::PipelineColorBlendStateCreateInfo colorBlending = {};
 		colorBlending.flags = vk::PipelineColorBlendStateCreateFlags();
 		colorBlending.logicOpEnable = VK_FALSE;

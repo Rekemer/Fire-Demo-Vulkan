@@ -46,11 +46,11 @@ namespace vkInit {
 			vk::DescriptorSetLayoutBinding layoutBinding;
 			layoutBinding.binding = bindings.indices[i];
 			layoutBinding.descriptorType = bindings.types[i];
-			layoutBinding.descriptorCount = bindings.counts[i];
 			layoutBinding.stageFlags = bindings.stages[i];
+			layoutBinding.descriptorCount = bindings.counts[i];
 			layoutBindings.push_back(layoutBinding);
 		}
-
+		//layoutBindings[0].descriptorCount = bindings.counts[0];
 		/*
 			typedef struct VkDescriptorSetLayoutCreateInfo {
 				VkStructureType                        sType;
