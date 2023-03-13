@@ -3,8 +3,9 @@
 #include"Frame.h"
 #include "TriangleMesh.h"
 #include "Image.h"
+#include "QueueFamilies.h"
 class GLFWwindow;
-
+class ImGui_ImplVulkanH_Window;
 
 class Renderer
 {
@@ -12,11 +13,12 @@ public:
 	Renderer(int width, int height, GLFWwindow* window,bool debug);
 	~Renderer();
 	void Render();
+	void ImguiInit();
 private:
 	void BuildWindow();
 	void CreateInstance();
 	void CreateDevice();
-
+	void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, int width, int height);
 
 	void MakeDescriptorSetLayouts();
 	void MakePipeline();
@@ -62,7 +64,7 @@ private:
 	vk::Device m_device{ nullptr };
 	vk::Queue m_graphicsQueue{ nullptr };
 	vk::Queue m_presentQueue{ nullptr };
-
+	vkUtil::QueueFamilyIndices m_queueIndicies;
 	//swapchain
 	vk::SwapchainKHR m_swapchain{ nullptr };
 	std::vector<vkUtil::SwapChainFrame> m_swapchainFrames;

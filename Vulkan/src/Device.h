@@ -4,8 +4,8 @@
 #include "Swapchain.h"
 namespace vkInit
 {
-	
 	using namespace vkUtil;
+	
 
 	
 
@@ -233,13 +233,14 @@ namespace vkInit
 
 	}
 
-	std::array<vk::Queue, 2> GetQueue(vk::PhysicalDevice physicalDevice, vk::Device device, vk::SurfaceKHR surface, bool debug) {
-
+	std::pair<std::array<vk::Queue, 2>, vkUtil::QueueFamilyIndices> GetQueue(vk::PhysicalDevice physicalDevice, vk::Device device, vk::SurfaceKHR surface, bool debug) {
+		
 		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface, debug);
 		auto graphicQueue = device.getQueue(indices.graphicsFamily.value(), 0);
 		auto presentQueue = device.getQueue(indices.graphicsFamily.value(), 0);
 		auto ques = std::array<vk::Queue, 2>{graphicQueue, presentQueue};
-		return ques;
+		
+		return { ques, indices};
 	}
 	
 }

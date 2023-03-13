@@ -11,7 +11,7 @@ namespace vkUtil
 		}
 	};
 
-	QueueFamilyIndices FindQueueFamilies(vk::PhysicalDevice device, vk::SurfaceKHR surface, bool debug) {
+	inline QueueFamilyIndices FindQueueFamilies(vk::PhysicalDevice device, vk::SurfaceKHR surface, bool debug) {
 		QueueFamilyIndices indices;
 
 		std::vector<vk::QueueFamilyProperties> queueFamilies = device.getQueueFamilyProperties();

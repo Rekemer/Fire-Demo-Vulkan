@@ -1,3 +1,4 @@
+
 #include "Renderer.h"
 #include "Instance.h"
 #include "Logging.h"
@@ -8,10 +9,25 @@
 #include "Commands.h"
 #include "Sync.h"
 #include "Descriptors.h"
-
+#include "Descriptors.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
 #define BUILD 0
 std::string exe = "../../../Vulkan/";
+static VkDescriptorPool         g_DescriptorPool = VK_NULL_HANDLE;
+static ImGui_ImplVulkanH_Window g_MainWindowData;
+static int                      g_MinImageCount = 2;
+static void check_vk_result(VkResult err)
+{
+	if (err == 0)
+		return;
+	fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+	if (err < 0)
+		abort();
+}
+
 Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 	m_width{width},
 	m_height{ height },
@@ -26,8 +42,114 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 	MakePipeline();
 	FinalizeSetup();
 	MakeAssets();
+
+	ImguiInit();
+
 }
 
+ void Renderer::SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, int width, int height)
+{
+	wd->Surface = surface;
+
+	// Check for WSI support
+	VkBool32 res;
+	vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, m_queueIndicies.graphicsFamily.value(), wd->Surface, &res);
+	if (res != VK_TRUE)
+	{
+		fprintf(stderr, "Error no WSI support on physical device 0\n");
+		exit(-1);
+	}
+
+	// Select Surface Format
+	const VkFormat requestSurfaceImageFormat[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
+	const VkColorSpaceKHR requestSurfaceColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(m_physicalDevice, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
+
+	// Select Present Mode
+#ifdef IMGUI_UNLIMITED_FRAME_RATE
+	VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_FIFO_KHR };
+#else
+	VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_FIFO_KHR };
+#endif
+	wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(m_physicalDevice, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
+	//printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
+
+	// Create SwapChain, RenderPass, Framebuffer, etc.
+	IM_ASSERT(g_MinImageCount >= 2);
+	ImGui_ImplVulkanH_CreateOrResizeWindow(m_instance, m_physicalDevice, m_device, wd, m_queueIndicies.graphicsFamily.value(), NULL, width, height, g_MinImageCount);
+}
+void Renderer::ImguiInit()
+{
+	int w, h;
+	glfwGetFramebufferSize(m_window, &w, &h);
+	ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+	//wd->Swapchain = m_swapchain;
+	wd->RenderPass = m_renderpass;
+	//SetupVulkanWindow(wd, m_surface, w, h);
+	ImGui::CreateContext();
+
+
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+	//io.ConfigViewportsNoAutoMerge = true;
+	//io.ConfigViewportsNoTaskBarIcon = true;
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+
+	{
+		VkDescriptorPoolSize pool_sizes[] =
+		{
+			{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+		};
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+		pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+		pool_info.pPoolSizes = pool_sizes;
+		VkResult err = vkCreateDescriptorPool(m_device, &pool_info, NULL, &g_DescriptorPool);
+		check_vk_result(err);
+	}
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplGlfw_InitForVulkan(m_window, true);
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = m_instance;
+	init_info.PhysicalDevice = m_physicalDevice;
+	init_info.Device = m_device;
+	init_info.QueueFamily = m_queueIndicies.graphicsFamily.value();
+	init_info.Queue = m_graphicsQueue; // or present family?
+	//init_info.PipelineCache = g_PipelineCache;
+	init_info.DescriptorPool = g_DescriptorPool;
+	init_info.Subpass = 0;
+	init_info.MinImageCount = g_MinImageCount;
+	init_info.ImageCount = 3;
+	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	init_info.Allocator = NULL;
+	init_info.CheckVkResultFn = check_vk_result;
+	ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
+	auto font = io.Fonts->AddFontDefault();
+	ImGui::GetIO().Fonts->Build();
+	
+	
+}
 
 //reset and re-record command buffer usage mode
 void Renderer::Render()
@@ -71,6 +193,11 @@ void Renderer::Render()
 		}
 	}
 
+
+	
+
+
+
 	vk::PresentInfoKHR presentInfo = {};
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
@@ -99,6 +226,11 @@ void Renderer::Render()
 Renderer::~Renderer()
 {
 	m_device.waitIdle();
+
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	glfwTerminate();
 	DestroySwapchain();
 	m_device.destroyPipeline(m_pipeline);
@@ -110,7 +242,7 @@ Renderer::~Renderer()
 
 	m_device.destroyDescriptorSetLayout(meshSetLayout);
 	m_device.destroyDescriptorPool(meshDescriptorPool);
-
+	vkDestroyDescriptorPool(m_device, g_DescriptorPool, NULL);
 	delete triangleMesh;
 	delete textureNoise;
 	delete textureFlameColor;
@@ -121,7 +253,7 @@ Renderer::~Renderer()
 	m_instance.destroyDebugUtilsMessengerEXT(m_debugMessenger, nullptr, m_dldi);
 	m_instance.destroySurfaceKHR(m_surface);
 	m_instance.destroy();
-
+			
 
 
 }
@@ -154,10 +286,11 @@ void Renderer::CreateDevice()
 {
 	m_physicalDevice = vkInit::ChoosePhysicalDevice(m_instance, m_debug);
 	m_device  = vkInit::CreateLogicalDevice(m_physicalDevice,m_surface, m_debug);
-	std::array<vk::Queue, 2> queues = vkInit::GetQueue
+	std::pair<std::array<vk::Queue, 2>, vkUtil::QueueFamilyIndices> queues = vkInit::GetQueue
 	(m_physicalDevice, m_device, m_surface, m_debug);
-	m_graphicsQueue = queues[0];
-	m_presentQueue = queues[1];
+	m_queueIndicies = queues.second;
+	m_graphicsQueue = queues.first[0];
+	m_presentQueue = queues.first[1];
 	MakeSwapchain();
 
 }
