@@ -19,6 +19,7 @@ std::string exe = "../../../Vulkan/";
 static VkDescriptorPool         g_DescriptorPool = VK_NULL_HANDLE;
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int                      g_MinImageCount = 2;
+ImGui_ImplVulkanH_Window* g_wd;
 static void check_vk_result(VkResult err)
 {
 	if (err == 0)
@@ -47,13 +48,13 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 
 }
 
- void Renderer::SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface, int width, int height)
+ void Renderer::SetupVulkanWindow(ImGui_ImplVulkanH_Window* g_wd, VkSurfaceKHR surface, int width, int height)
 {
-	wd->Surface = surface;
+	g_wd->Surface = surface;
 
 	// Check for WSI support
 	VkBool32 res;
-	vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, m_queueIndicies.graphicsFamily.value(), wd->Surface, &res);
+	vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, m_queueIndicies.graphicsFamily.value(), g_wd->Surface, &res);
 	if (res != VK_TRUE)
 	{
 		fprintf(stderr, "Error no WSI support on physical device 0\n");
@@ -63,7 +64,7 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 	// Select Surface Format
 	const VkFormat requestSurfaceImageFormat[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
 	const VkColorSpaceKHR requestSurfaceColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-	wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(m_physicalDevice, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
+	g_wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(m_physicalDevice, g_wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
 
 	// Select Present Mode
 #ifdef IMGUI_UNLIMITED_FRAME_RATE
@@ -71,20 +72,97 @@ Renderer::Renderer(int width, int height, GLFWwindow* window, bool debug):
 #else
 	VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_FIFO_KHR };
 #endif
-	wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(m_physicalDevice, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
+	g_wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(m_physicalDevice, g_wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
 	//printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
 
 	// Create SwapChain, RenderPass, Framebuffer, etc.
 	IM_ASSERT(g_MinImageCount >= 2);
-	ImGui_ImplVulkanH_CreateOrResizeWindow(m_instance, m_physicalDevice, m_device, wd, m_queueIndicies.graphicsFamily.value(), NULL, width, height, g_MinImageCount);
+	ImGui_ImplVulkanH_CreateOrResizeWindow(m_instance, m_physicalDevice, m_device, g_wd, m_queueIndicies.graphicsFamily.value(), NULL, width, height, g_MinImageCount);
 }
 void Renderer::ImguiInit()
 {
 	int w, h;
 	glfwGetFramebufferSize(m_window, &w, &h);
-	ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+	g_wd = &g_MainWindowData;
 	//wd->Swapchain = m_swapchain;
-	wd->RenderPass = m_renderpass;
+	g_wd->Width = w;
+	g_wd->Height = h;
+	g_wd->Surface = m_surface;
+	g_wd->PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+	g_wd->SurfaceFormat.format = VK_FORMAT_B8G8R8A8_UNORM;
+	g_wd->Swapchain = m_swapchain;
+
+
+
+	 // Create the Render Pass
+	{
+		VkAttachmentDescription attachment = {};
+		attachment.format = g_wd->SurfaceFormat.format;
+		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		attachment.loadOp = g_wd->ClearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		VkAttachmentReference color_attachment = {};
+		color_attachment.attachment = 0;
+		color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &color_attachment;
+		VkSubpassDependency dependency = {};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		VkRenderPassCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		info.attachmentCount = 1;
+		info.pAttachments = &attachment;
+		info.subpassCount = 1;
+		info.pSubpasses = &subpass;
+		info.dependencyCount = 1;
+		info.pDependencies = &dependency;
+		auto err = vkCreateRenderPass(m_device, &info, nullptr, &g_wd->RenderPass);
+		check_vk_result(err);
+
+		// We do not create a pipeline by default as this is also used by examples' main.cpp,
+		// but secondary viewport in multi-viewport mode may want to create one with:
+		//ImGui_ImplVulkan_CreatePipeline(device, allocator, VK_NULL_HANDLE, wd->RenderPass, VK_SAMPLE_COUNT_1_BIT, &wd->Pipeline, bd->Subpass);
+	}
+	
+	g_wd->ImageCount = 3;
+	g_wd->Frames = new ImGui_ImplVulkanH_Frame[3];
+	
+	{
+		VkImageView attachment[1];
+		VkFramebufferCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		info.renderPass = g_wd->RenderPass;
+		info.attachmentCount = 1;
+		info.pAttachments = attachment;
+		info.width = g_wd->Width;
+		info.height = g_wd->Height;
+		info.layers = 1;
+		for (uint32_t i = 0; i < g_wd->ImageCount; i++)
+		{
+			g_wd->Frames[i].Backbuffer = m_swapchainFrames[i].image;
+			g_wd->Frames[i].BackbufferView = (VkImageView)m_swapchainFrames[i].imageView;
+			g_wd->Frames[i].CommandBuffer = m_swapchainFrames[i].commandBuffer;
+			ImGui_ImplVulkanH_Frame* fd = &g_wd->Frames[i];
+			attachment[0] = fd->BackbufferView;
+			auto err = vkCreateFramebuffer(m_device, &info, nullptr, &fd->Framebuffer);
+			check_vk_result(err);
+		}
+	}
+
+	
+
+
 	//SetupVulkanWindow(wd, m_surface, w, h);
 	ImGui::CreateContext();
 
@@ -144,9 +222,42 @@ void Renderer::ImguiInit()
 	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 	init_info.Allocator = NULL;
 	init_info.CheckVkResultFn = check_vk_result;
-	ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
-	auto font = io.Fonts->AddFontDefault();
-	ImGui::GetIO().Fonts->Build();
+	auto err = ImGui_ImplVulkan_Init(&init_info, g_wd->RenderPass);
+	// Load default font
+
+
+	ImFont* font1 = io.Fonts->AddFontDefault();
+
+	 // Upload Fonts
+	{
+		// Use any command queue
+		//VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
+		VkCommandPool command_pool = m_commandPool;
+		VkCommandBuffer command_buffer = g_wd->Frames[frameNumber].CommandBuffer;
+
+		auto err = vkResetCommandPool(m_device, command_pool, 0);
+		check_vk_result(err);
+		VkCommandBufferBeginInfo begin_info = {};
+		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		err = vkBeginCommandBuffer(command_buffer, &begin_info);
+		check_vk_result(err);
+
+		ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+
+		VkSubmitInfo end_info = {};
+		end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		end_info.commandBufferCount = 1;
+		end_info.pCommandBuffers = &command_buffer;
+		err = vkEndCommandBuffer(command_buffer);
+		check_vk_result(err);
+		err = vkQueueSubmit(m_graphicsQueue, 1, &end_info, VK_NULL_HANDLE);
+		check_vk_result(err);
+
+		err = vkDeviceWaitIdle(m_device);
+		check_vk_result(err);
+		ImGui_ImplVulkan_DestroyFontUploadObjects();
+	}
 	
 	
 }
@@ -503,6 +614,30 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 
 	commandBuffer.endRenderPass();
 
+	vk::RenderPassBeginInfo renderPassInfoImGui = {};
+	renderPassInfoImGui.renderPass = g_wd->RenderPass;
+	renderPassInfoImGui.framebuffer = g_wd->Frames[imageIndex].Framebuffer;
+	renderPassInfoImGui.renderArea.offset.x = 0;
+	renderPassInfoImGui.renderArea.offset.y = 0;
+	renderPassInfoImGui.renderArea.extent = m_swapchainExtent;
+
+	renderPassInfoImGui.clearValueCount = 1;
+	renderPassInfoImGui.pClearValues = &clearColor;
+
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::Begin("Hello");
+	ImGui::End();
+	ImGui::Render();
+	ImDrawData* main_draw_data = ImGui::GetDrawData();
+
+	commandBuffer.beginRenderPass(renderPassInfoImGui, vk::SubpassContents::eInline);
+	ImGui_ImplVulkanH_Frame fd = g_wd->Frames[imageIndex];
+	ImGui_ImplVulkan_RenderDrawData(main_draw_data, fd.CommandBuffer);
+	commandBuffer.endRenderPass();
+
 	try {
 		commandBuffer.end();
 	}
@@ -538,8 +673,8 @@ void Renderer::MakeAssets()
 
 #if BUILD
 
-	auto path =  exe + "res/coffee.jpg" ;
-
+	auto path =  exe + "res/noise.jpg" ;
+	std::cout << path.c_str() << '\n';
 	textureInfoNoise.filename = path.c_str();
 #else
 	textureInfoNoise.filename = "res/noise.jpg";
@@ -558,7 +693,17 @@ void Renderer::MakeAssets()
 	textureInfoNoise.binding=0;
 	
 
+#if BUILD
+
+	path = exe + "res/flame.png";
+
+	textureInfoflame.filename = path.c_str();
+#else
 	textureInfoflame.filename = "res/flame.png";
+#endif
+
+
+	
 	textureInfoflame.commandBuffer = m_mainCommandBuffer;
 	textureInfoflame.queue = m_graphicsQueue;
 	textureInfoflame.logicalDevice = m_device;
@@ -571,7 +716,17 @@ void Renderer::MakeAssets()
 	textureInfoflame.binding=1;
 	textureInfoflame.descriptorSet = descriptorSetTextures;
 
+
+#if BUILD
+
+	path = exe + "res/flameColor.png";
+
+	textureInfoflameColor.filename = path.c_str();
+#else
 	textureInfoflameColor.filename = "res/flameColor.png";
+#endif
+
+	
 	textureInfoflameColor.commandBuffer = m_mainCommandBuffer;
 	textureInfoflameColor.queue = m_graphicsQueue;
 	textureInfoflameColor.logicalDevice = m_device;

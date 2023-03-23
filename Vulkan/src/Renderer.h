@@ -74,6 +74,7 @@ private:
 	//pipeline-related variables
 	vk::PipelineLayout m_pipelineLayout;
 	vk::RenderPass m_renderpass;
+	vk::RenderPass m_ImGuiRenderpass;
 	vk::Pipeline m_pipeline;
 
 
