@@ -8,6 +8,8 @@ namespace vkUtil
 		glm::mat4 view;
 		glm::mat4 projection;
 		glm::mat4 viewProjection;
+		float t;
+		float time;
 	};
 
 	struct SwapChainFrame {
@@ -32,11 +34,12 @@ namespace vkUtil
 			input.logicalDevice = logicalDevice;
 			input.memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
 			input.physicalDevice = physicalDevice;
-			input.size = sizeof(UBO);
+			auto size = sizeof(UBO);
+			input.size = size;
 			input.usage = vk::BufferUsageFlagBits::eUniformBuffer;
 			cameraDataBuffer = createBuffer(input);
 
-			cameraDataWriteLocation = logicalDevice.mapMemory(cameraDataBuffer.bufferMemory, 0, sizeof(UBO));
+			cameraDataWriteLocation = logicalDevice.mapMemory(cameraDataBuffer.bufferMemory, 0, size);
 
 			/*
 			typedef struct VkDescriptorBufferInfo {
@@ -47,7 +50,7 @@ namespace vkUtil
 			*/
 			uniformBufferDescriptor.buffer = cameraDataBuffer.buffer;
 			uniformBufferDescriptor.offset = 0;
-			uniformBufferDescriptor.range = sizeof(UBO);
+			uniformBufferDescriptor.range = size;
 
 		}
 

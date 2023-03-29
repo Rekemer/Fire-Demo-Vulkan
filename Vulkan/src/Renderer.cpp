@@ -20,6 +20,8 @@ static VkDescriptorPool         g_DescriptorPool = VK_NULL_HANDLE;
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int                      g_MinImageCount = 2;
 ImGui_ImplVulkanH_Window* g_wd;
+static float g_tValue = 0; 
+
 static void check_vk_result(VkResult err)
 {
 	if (err == 0)
@@ -99,11 +101,11 @@ void Renderer::ImguiInit()
 		VkAttachmentDescription attachment = {};
 		attachment.format = g_wd->SurfaceFormat.format;
 		attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		attachment.loadOp = g_wd->ClearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		VkAttachmentReference color_attachment = {};
 		color_attachment.attachment = 0;
@@ -263,10 +265,11 @@ void Renderer::ImguiInit()
 }
 
 //reset and re-record command buffer usage mode
-void Renderer::Render()
+void Renderer::Render(float time)
 {
 	m_device.waitForFences(1, &m_swapchainFrames[frameNumber].inFlight, VK_TRUE, UINT64_MAX);
 	m_device.resetFences(1, &m_swapchainFrames[frameNumber].inFlight);
+
 
 	//acquireNextImageKHR(vk::SwapChainKHR, timeout, semaphore_to_signal, fence)
 	uint32_t imageIndex{ m_device.acquireNextImageKHR(m_swapchain, UINT64_MAX, m_swapchainFrames[frameNumber].imageAvailable, nullptr).value };
@@ -274,8 +277,8 @@ void Renderer::Render()
 	vk::CommandBuffer commandBuffer = m_swapchainFrames[frameNumber].commandBuffer;
 
 	commandBuffer.reset();
-
-	PrepareFrame(imageIndex);
+	
+	PrepareFrame(imageIndex,time);
 
 	RecordDrawCommands(commandBuffer, imageIndex);
 
@@ -338,12 +341,22 @@ Renderer::~Renderer()
 {
 	m_device.waitIdle();
 
+	
+
+	glfwTerminate();
+	DestroySwapchain();
+
+	for (uint32_t i = 0; i < g_wd->ImageCount; i++)
+	{
+		vkDestroyFramebuffer(m_device, g_wd->Frames[i].Framebuffer, nullptr);
+	}
+
+	vkDestroyRenderPass(m_device, g_wd->RenderPass, nullptr);
+
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 
-	glfwTerminate();
-	DestroySwapchain();
 	m_device.destroyPipeline(m_pipeline);
 	m_device.destroyPipelineLayout(m_pipelineLayout);
 	m_device.destroyRenderPass(m_renderpass);
@@ -592,7 +605,7 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	renderPassInfo.renderArea.offset.y = 0;
 	renderPassInfo.renderArea.extent = m_swapchainExtent;
 
-	vk::ClearValue clearColor = { std::array<float, 4>{1.0f, 0.5f, 0.25f, 1.0f} };
+	vk::ClearValue clearColor = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} };
 	renderPassInfo.clearValueCount = 1;
 	renderPassInfo.pClearValues = &clearColor;
 
@@ -622,6 +635,7 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	renderPassInfoImGui.renderArea.extent = m_swapchainExtent;
 
 	renderPassInfoImGui.clearValueCount = 1;
+	clearColor = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} };
 	renderPassInfoImGui.pClearValues = &clearColor;
 
 	ImGui_ImplVulkan_NewFrame();
@@ -629,6 +643,7 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	ImGui::NewFrame();
 
 	ImGui::Begin("Hello");
+	ImGui::SliderFloat("t_value", &g_tValue,0,1);
 	ImGui::End();
 	ImGui::Render();
 	ImDrawData* main_draw_data = ImGui::GetDrawData();
@@ -695,9 +710,10 @@ void Renderer::MakeAssets()
 
 #if BUILD
 
-	path = exe + "res/flame.png";
+	auto path2 = exe + "res/flame.png";
 
-	textureInfoflame.filename = path.c_str();
+	std::cout << path2.c_str() << '\n';
+	textureInfoflame.filename = path2.c_str();
 #else
 	textureInfoflame.filename = "res/flame.png";
 #endif
@@ -719,9 +735,10 @@ void Renderer::MakeAssets()
 
 #if BUILD
 
-	path = exe + "res/flameColor.png";
+	auto path3 = exe + "res/flameColor.png";
 
-	textureInfoflameColor.filename = path.c_str();
+	std::cout << path3.c_str() << '\n';
+	textureInfoflameColor.filename = path3.c_str();
 #else
 	textureInfoflameColor.filename = "res/flameColor.png";
 #endif
@@ -801,7 +818,7 @@ glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
 }
 
 #include<gtc/matrix_access.hpp>
-void Renderer::PrepareFrame(uint32_t imageIndex)
+void Renderer::PrepareFrame(uint32_t imageIndex,float time)
 {
 	glm::vec3 posCamera = { .0f, 0.0f,-2.0f };
 	glm::vec3 target = { 0.0f, 0.0f, 0.0f };
@@ -853,9 +870,12 @@ void Renderer::PrepareFrame(uint32_t imageIndex)
 	m_swapchainFrames[imageIndex].cameraData.projection = projection;
 	//translate *= glm::rotate(glm::mat4(1.f), glm::radians(0.f), glm::vec3(0.0f, 1.0f, 0.0f));
 	m_swapchainFrames[imageIndex].cameraData.viewProjection = projCustom * view;
+	m_swapchainFrames[imageIndex].cameraData.t = g_tValue;
+	m_swapchainFrames[imageIndex].cameraData.time = time;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = projection;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = ortho;
 	
+	//std::cout << m_swapchainFrames[imageIndex].cameraData.time << "\n";
 	
 	memcpy(m_swapchainFrames[imageIndex].cameraDataWriteLocation, &(m_swapchainFrames[imageIndex].cameraData), sizeof(vkUtil::UBO));
 

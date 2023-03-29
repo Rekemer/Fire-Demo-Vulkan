@@ -12,7 +12,7 @@ class Renderer
 public:
 	Renderer(int width, int height, GLFWwindow* window,bool debug);
 	~Renderer();
-	void Render();
+	void Render(float time);
 	void ImguiInit();
 private:
 	void BuildWindow();
@@ -40,7 +40,7 @@ private:
 	void MakeAssets();
 
 	void PrepareScene(vk::CommandBuffer commandBuffer);
-	void PrepareFrame(uint32_t imageIndex);
+	void PrepareFrame(uint32_t imageIndex,float time);
 
 private:
 	bool m_debug;

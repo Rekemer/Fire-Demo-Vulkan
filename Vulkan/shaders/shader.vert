@@ -19,6 +19,8 @@ layout(set = 0, binding = 0) uniform UBO {
 	mat4 view;
 	mat4 projection;
 	mat4 viewProjection;
+	float t;
+	float time;
 } cameraData;
 
 
@@ -28,6 +30,8 @@ layout(location = 2) in vec2 in_uv;
 
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 uv;
+layout(location = 2) out float t;
+layout(location = 3) out float time;
 
 void main() 
 {
@@ -47,4 +51,6 @@ void main()
 	fragColor = in_color;
 	vec2 inverted_uv = vec2(in_uv.x,in_uv.y);
 	uv = inverted_uv;
+	t = cameraData.t;
+	time = cameraData.time;
 }
