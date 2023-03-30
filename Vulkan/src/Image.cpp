@@ -136,7 +136,7 @@ void vkImage::Texture::make_sampler() {
 	*/
 	vk::SamplerCreateInfo samplerInfo;
 	samplerInfo.flags = vk::SamplerCreateFlags();
-	samplerInfo.minFilter = vk::Filter::eNearest;
+	samplerInfo.minFilter = vk::Filter::eLinear;
 	samplerInfo.magFilter = vk::Filter::eLinear;
 	samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
 	samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;

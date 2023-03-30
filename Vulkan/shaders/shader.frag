@@ -3,9 +3,8 @@
 layout(location = 0) in vec3 in_color;
 layout(location = 1) in vec2 uv;
 layout(location = 2) in float t;
-layout(location = 3) in float time;
-//   _Sign = clamp(_Sign,-1,1);
-//layout(location = 4) in float _Sign;
+layout(location = 3) in float time; 
+layout(location = 4) in float _Sign;
 
 layout(location = 0) out vec4 outColor;
 
@@ -22,7 +21,7 @@ void main() {
 	//outColor = texture(u_imageFlameColor,uv);
 	//outColor = vec4(uv,0,1);
 	float color = sin(time);
-	outColor = vec4(t ,t ,t ,1);
+	
 
 	
                
@@ -33,7 +32,7 @@ void main() {
                 flameUv = flameUv *2 -1;
                 vec2 center = vec2(0.0,0.0);
                    
-          
+                
                  
 
                 float scale = 4;
@@ -51,8 +50,8 @@ void main() {
                
              
 
-
-                float rotation = 0.4*angle *  3.14/180;
+                float sign_angle = clamp(_Sign,-1,1);
+                float rotation =sign_angle * angle *  3.14/180;
                 float sine = sin(rotation);
                 float cosine = cos(rotation);
                 vec2 pivot = center;
@@ -73,7 +72,7 @@ void main() {
                 float movement =0;
                 float frequency = 1.;
             
-                float tTemp = 0.01*(-time*130.0);
+                float tTemp = 0.02*(-time*130.0);
                 movement += sin(flameUv.y*frequency*2.1 + tTemp)*4.5;
                 movement += sin(flameUv.y*frequency*1.72 + tTemp*1.121)*4.0;
                 movement += sin(flameUv.y*frequency*2.221 +tTemp*0.437)*5.0;
@@ -82,7 +81,6 @@ void main() {
                 
 				flameUv.x += movement*0.4*value ;
 
-                outColor =vec4(flameUv,0,1);
               
                 
                 vec4 tex = texture(u_imageFlame,flameUv);
@@ -92,6 +90,7 @@ void main() {
                 flameUv.y -= cos(4*flameUv.x) ;
                 flameUv.y -= time;
                 
+               // outColor =vec4(flameUv,0,1);
             
                 
 				vec4 noise = texture(u_noise,flameUv);
@@ -111,14 +110,15 @@ void main() {
  				
 				
                 float x= res.r;
-                float thresh = 0.09;
-                res.rgb = step(thresh ,res.rgb);
+                float thresh = 0.09*2;
+                
+                res.rgb = step(vec3(thresh), res.rgb);
+				
                 res.a = res.x;
 				
                 vec4 blackWhiteGrad = mix(vec4(1,1,1,res.a),vec4(0,0,0,res.a),res);
 				vec4 colorTex = texture(u_imageFlameColor,vec2(x,t));
-				outColor= res* colorTex;
-              
+             outColor = colorTex*res.a;
 
                 
               

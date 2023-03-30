@@ -21,6 +21,9 @@ static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int                      g_MinImageCount = 2;
 ImGui_ImplVulkanH_Window* g_wd;
 static float g_tValue = 0; 
+static float vel = 0; 
+static float acceleration = 2;
+static  glm::vec3 pos = glm::vec3(0,0,0);
 
 static void check_vk_result(VkResult err)
 {
@@ -265,7 +268,7 @@ void Renderer::ImguiInit()
 }
 
 //reset and re-record command buffer usage mode
-void Renderer::Render(float time)
+void Renderer::Render(float time,float deltaTime)
 {
 	m_device.waitForFences(1, &m_swapchainFrames[frameNumber].inFlight, VK_TRUE, UINT64_MAX);
 	m_device.resetFences(1, &m_swapchainFrames[frameNumber].inFlight);
@@ -278,7 +281,7 @@ void Renderer::Render(float time)
 
 	commandBuffer.reset();
 	
-	PrepareFrame(imageIndex,time);
+	PrepareFrame(imageIndex,time, deltaTime);
 
 	RecordDrawCommands(commandBuffer, imageIndex);
 
@@ -643,7 +646,7 @@ void Renderer::RecordDrawCommands(vk::CommandBuffer commandBuffer, uint32_t imag
 	ImGui::NewFrame();
 
 	ImGui::Begin("Hello");
-	ImGui::SliderFloat("t_value", &g_tValue,0,1);
+	ImGui::SliderFloat("t_value", &g_tValue,0,0.98);
 	ImGui::End();
 	ImGui::Render();
 	ImDrawData* main_draw_data = ImGui::GetDrawData();
@@ -818,7 +821,7 @@ glm::mat4 PreparePerspectiveProjectionMatrix(float aspect_ratio,
 }
 
 #include<gtc/matrix_access.hpp>
-void Renderer::PrepareFrame(uint32_t imageIndex,float time)
+void Renderer::PrepareFrame(uint32_t imageIndex,float time,float deltaTime)
 {
 	glm::vec3 posCamera = { .0f, 0.0f,-2.0f };
 	glm::vec3 target = { 0.0f, 0.0f, 0.0f };
@@ -838,7 +841,7 @@ void Renderer::PrepareFrame(uint32_t imageIndex,float time)
 	
 	 // view matrix  is inverse(transpose) of camera transform matrix that moves objects to world zero coordinates
 	 // direction of z is specified by handiness of world system (resulr of cross product)
-     glm::mat4 cameraWorld{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{0,0,12,1} };
+     glm::mat4 cameraWorld{ glm::vec4{1,0,0,0},glm::vec4{glm::vec4{0,-1,0,0}},glm::vec4{0,0,-1,0},glm::vec4{0,0,2,1} };
      view = glm::inverse(cameraWorld);
 	
 	glm::mat4 projCustom = PreparePerspectiveProjectionMatrix(aspect, 45.0, 0.001f, 100.0f);
@@ -865,13 +868,27 @@ void Renderer::PrepareFrame(uint32_t imageIndex,float time)
 	auto worldSpaceCoords = translate * test;
 
 	
+	auto input =glm::vec2( glfwGetKey(m_window,GLFW_KEY_A), glfwGetKey(m_window, GLFW_KEY_D));
+	input.y *= -1;
+	auto inputHoriz = input.x + input.y;
+	vel += inputHoriz * acceleration * deltaTime;
+	// add resist
+	vel -= vel*0.01/6;
+	pos.x= vel*deltaTime + pos.x;
+	
 
+
+	std::cout << pos.x << "\n";
 	m_swapchainFrames[imageIndex].cameraData.view = view;
 	m_swapchainFrames[imageIndex].cameraData.projection = projection;
 	//translate *= glm::rotate(glm::mat4(1.f), glm::radians(0.f), glm::vec3(0.0f, 1.0f, 0.0f));
 	m_swapchainFrames[imageIndex].cameraData.viewProjection = projCustom * view;
+
+	m_swapchainFrames[imageIndex].cameraData.world = glm::translate(glm::mat4(1.f), pos);
+	
 	m_swapchainFrames[imageIndex].cameraData.t = g_tValue;
 	m_swapchainFrames[imageIndex].cameraData.time = time;
+	m_swapchainFrames[imageIndex].cameraData.sign= -vel;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = projection;
 	//m_swapchainFrames[imageIndex].cameraData.viewProjection = ortho;
 	

@@ -32,14 +32,15 @@ void App::build_glfw_window(int width, int height, bool debugMode) {
 		}
 	}
 }
-
+static float deltaTime = 0;
 void App::run() {
 
 	while (!glfwWindowShouldClose(window)) {
 		float time = glfwGetTime();
 		glfwPollEvents();
-		graphicsEngine->Render(time);
+		graphicsEngine->Render(time,deltaTime);
 		calculateFrameRate();
+		deltaTime = glfwGetTime () - time;
 	}
 }
 
